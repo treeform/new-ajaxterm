@@ -1,5 +1,10 @@
 (function() {
-  var __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; };
+  var chr,
+    __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; };
+
+  chr = function(code) {
+    return String.fromCharCode(code);
+  };
 
   window.Terminal = (function() {
 
@@ -204,36 +209,35 @@
       k = "";
       if (ev.keyCode) kc = ev.keyCode;
       if (ev.which) kc = ev.which;
+      console.log(kc);
       if (ev.altKey) {
         if (kc >= 65 && kc <= 90) kc += 32;
-        if (kc >= 97 && kc <= 122) {
-          k = String.fromCharCode(27) + String.fromCharCode(kc);
-        }
+        if (kc >= 97 && kc <= 122) k = chr(27) + chr(kc);
       } else if (ev.ctrlKey) {
         if (kc >= 65 && kc <= 90) {
-          k = String.fromCharCode(kc - 64);
+          k = chr(kc - 64);
         } else if (kc >= 97 && kc <= 122) {
-          k = String.fromCharCode(kc - 96);
+          k = chr(kc - 96);
         } else if (kc === 54) {
-          k = String.fromCharCode(30);
+          k = chr(30);
         } else if (kc === 109) {
-          k = String.fromCharCode(31);
+          k = chr(31);
         } else if (kc === 219) {
-          k = String.fromCharCode(27);
+          k = chr(27);
         } else if (kc === 220) {
-          k = String.fromCharCode(28);
+          k = chr(28);
         } else if (kc === 221) {
-          k = String.fromCharCode(29);
+          k = chr(29);
         } else if (kc === 219) {
-          k = String.fromCharCode(29);
-        } else {
-          if (kc === 219) k = String.fromCharCode(0);
+          k = chr(29);
+        } else if (kc === 219) {
+          k = chr(0);
         }
       } else if (ev.which === 0) {
         if (kc === 9) {
-          k = String.fromCharCode(9);
+          k = chr(9);
         } else if (kc === 8) {
-          k = String.fromCharCode(127);
+          k = chr(127);
         } else if (kc !== 27) {
           if (kc === 33) {
             k = "[5~";
@@ -277,16 +281,16 @@
             k = "[21~";
           } else if (kc === 122) {
             k = "[23~";
-          } else {
-            if (kc === 123) k = "[24~";
+          } else if (kc === 123) {
+            k = "[24~";
           }
-          if (k.length) k = String.fromCharCode(27) + k;
+          if (k.length) k = chr(27) + k;
         }
       } else {
         if (kc === 8) {
-          k = String.fromCharCode(127);
+          k = chr(127);
         } else {
-          k = String.fromCharCode(kc);
+          k = chr(kc);
         }
       }
       if (k.length) {

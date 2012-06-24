@@ -1,3 +1,5 @@
+chr = (code) -> String.fromCharCode(code)
+
 
 class window.Terminal 
     
@@ -133,7 +135,7 @@ class window.Terminal
                             rmax = 100
                         else
                             rmax *= 2
-                            rmax = 2000    if rmax > 2000
+                            rmax = 2000 if rmax > 2000
                         @sending = 0
                         @sled.className = "off"
                         @timeout = window.setTimeout(@update, rmax)
@@ -157,32 +159,36 @@ class window.Terminal
         k = ""
         kc = ev.keyCode    if ev.keyCode
         kc = ev.which    if ev.which
+        console.log kc
         if ev.altKey
-            kc += 32    if kc >= 65 and kc <= 90
-            k = String.fromCharCode(27) + String.fromCharCode(kc)    if kc >= 97 and kc <= 122
+            if kc >= 65 and kc <= 90
+                kc += 32 
+            if kc >= 97 and kc <= 122
+                k = chr(27) + chr(kc)    
         else if ev.ctrlKey
             if kc >= 65 and kc <= 90
-                k = String.fromCharCode(kc - 64)
+                k = chr(kc - 64)
             else if kc >= 97 and kc <= 122
-                k = String.fromCharCode(kc - 96)
+                k = chr(kc - 96)
             else if kc is 54
-                k = String.fromCharCode(30)
+                k = chr(30)
             else if kc is 109
-                k = String.fromCharCode(31)
+                k = chr(31)
             else if kc is 219
-                k = String.fromCharCode(27)
+                k = chr(27)
             else if kc is 220
-                k = String.fromCharCode(28)
+                k = chr(28)
             else if kc is 221
-                k = String.fromCharCode(29)
+                k = chr(29)
             else if kc is 219
-                k = String.fromCharCode(29)
-            else k = String.fromCharCode(0)    if kc is 219
+                k = chr(29)
+            else if kc is 219
+                k = chr(0)    
         else if ev.which is 0
             if kc is 9
-                k = String.fromCharCode(9)
+                k = chr(9)
             else if kc is 8
-                k = String.fromCharCode(127)
+                k = chr(127)
             else unless kc is 27
                 if kc is 33
                     k = "[5~"
@@ -226,22 +232,25 @@ class window.Terminal
                     k = "[21~"
                 else if kc is 122
                     k = "[23~"
-                else k = "[24~"    if kc is 123
-                k = String.fromCharCode(27) + k    if k.length
+                else if kc is 123
+                    k = "[24~"   
+                if k.length
+                    k = chr(27) + k    
         else
             if kc is 8
-                k = String.fromCharCode(127)
+                k = chr(127)
             else
-                k = String.fromCharCode(kc)
+                k = chr(kc)
         if k.length
             if k is "+"
                 @queue "%2B"
             else
                 @queue escape(k)
+                
         ev.cancelBubble = true
         ev.stopPropagation()    if ev.stopPropagation
         ev.preventDefault()    if ev.preventDefault
-        false
+        return false
         
     keydown: (ev) =>
         ev = window.event unless ev

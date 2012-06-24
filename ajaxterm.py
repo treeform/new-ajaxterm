@@ -2,7 +2,8 @@
 
 """ Ajaxterm """
 
-import array,cgi,fcntl,glob,mimetypes,optparse,os,pty,random,re,signal,select,sys,threading,time,termios,struct,pwd
+import array,cgi,fcntl,glob,mimetypes,optparse,os,pty
+import random,re,signal,select,sys,threading,time,termios,struct,pwd
 
 os.chdir(os.path.normpath(os.path.dirname(__file__)))
 # Optional: Add QWeb in sys path
@@ -10,12 +11,15 @@ sys.path[0:0]=glob.glob('../../python')
 
 import qweb
 
+
 class Terminal:
+
     def __init__(self,width=80,height=24):
         self.width=width
         self.height=height
         self.init()
         self.reset()
+        
     def init(self):
         self.esc_seq={
             "\x00": None,
@@ -90,6 +94,7 @@ class Terminal:
                 self.trhtml+="\xa0"
             else:
                 self.trhtml+="?"
+                
     def reset(self,s=""):
         self.scr=array.array('i',[0x000700]*(self.width*self.height))
         self.st=0
@@ -101,24 +106,31 @@ class Terminal:
         self.buf=""
         self.outbuf=""
         self.last_html=""
+        
     def peek(self,y1,x1,y2,x2):
         return self.scr[self.width*y1+x1:self.width*y2+x2]
+        
     def poke(self,y,x,s):
         pos=self.width*y+x
         self.scr[pos:pos+len(s)]=s
+        
     def zero(self,y1,x1,y2,x2):
         w=self.width*(y2-y1)+x2-x1+1
         z=array.array('i',[0x000700]*w)
         self.scr[self.width*y1+x1:self.width*y2+x2+1]=z
+        
     def scroll_up(self,y1,y2):
         self.poke(y1,0,self.peek(y1+1,0,y2,self.width))
         self.zero(y2,0,y2,self.width-1)
+        
     def scroll_down(self,y1,y2):
         self.poke(y1+1,0,self.peek(y1,0,y2-1,self.width))
         self.zero(y1,0,y1,self.width-1)
+        
     def scroll_right(self,y,x):
         self.poke(y,x+1,self.peek(y,x,y,self.width))
         self.zero(y,x,y,x)
+        
     def cursor_down(self):
         if self.cy>=self.st and self.cy<=self.sb:
             self.cl=0
@@ -128,45 +140,57 @@ class Terminal:
                 self.cy=self.sb
             else:
                 self.cy=r
+                
     def cursor_right(self):
         q,r=divmod(self.cx+1,self.width)
         if q:
             self.cl=1
         else:
             self.cx=r
+            
     def echo(self,c):
         if self.cl:
             self.cursor_down()
             self.cx=0
         self.scr[(self.cy*self.width)+self.cx]=self.sgr|ord(c)
         self.cursor_right()
+        
     def esc_0x08(self,s):
         self.cx=max(0,self.cx-1)
+        
     def esc_0x09(self,s):
         x=self.cx+8
         q,r=divmod(x,8)
         self.cx=(q*8)%self.width
+        
     def esc_0x0a(self,s):
         self.cursor_down()
+        
     def esc_0x0d(self,s):
         self.cl=0
         self.cx=0
+        
     def esc_save(self,s):
         self.cx_bak=self.cx
         self.cy_bak=self.cy
+        
     def esc_restore(self,s):
         self.cx=self.cx_bak
         self.cy=self.cy_bak
         self.cl=0
+        
     def esc_da(self,s):
         self.outbuf="\x1b[?6c"
+        
     def esc_ri(self,s):
         self.cy=max(self.st,self.cy-1)
         if self.cy==self.st:
             self.scroll_down(self.st,self.sb)
+            
     def esc_ignore(self,*s):
         pass
 #        print "term:ignore: %s"%repr(s)
+
     def csi_dispatch(self,seq,mo):
     # CSI sequences
         s=mo.group(1)
@@ -182,34 +206,44 @@ class Terminal:
             f[0](l)
 #        else:
 #            print 'csi ignore',c,l
+
     def csi_at(self,l):
         for i in range(l[0]):
             self.scroll_right(self.cy,self.cx)
+            
     def csi_A(self,l):
         self.cy=max(self.st,self.cy-l[0])
+        
     def csi_B(self,l):
         self.cy=min(self.sb,self.cy+l[0])
+        
     def csi_C(self,l):
         self.cx=min(self.width-1,self.cx+l[0])
         self.cl=0
+        
     def csi_D(self,l):
         self.cx=max(0,self.cx-l[0])
         self.cl=0
+        
     def csi_E(self,l):
         self.csi_B(l)
         self.cx=0
         self.cl=0
+        
     def csi_F(self,l):
         self.csi_A(l)
         self.cx=0
         self.cl=0
+        
     def csi_G(self,l):
         self.cx=min(self.width,l[0])-1
+        
     def csi_H(self,l):
         if len(l)<2: l=[1,1]
         self.cx=min(self.width,l[1])-1
         self.cy=min(self.height,l[0])-1
         self.cl=0
+        
     def csi_J(self,l):
         if l[0]==0:
             self.zero(self.cy,self.cx,self.height-1,self.width-1)
@@ -217,6 +251,7 @@ class Terminal:
             self.zero(0,0,self.cy,self.cx)
         elif l[0]==2:
             self.zero(0,0,self.height-1,self.width-1)
+            
     def csi_K(self,l):
         if l[0]==0:
             self.zero(self.cy,self.cx,self.cy,self.width-1)
@@ -224,40 +259,52 @@ class Terminal:
             self.zero(self.cy,0,self.cy,self.cx)
         elif l[0]==2:
             self.zero(self.cy,0,self.cy,self.width-1)
+            
     def csi_L(self,l):
         for i in range(l[0]):
             if self.cy<self.sb:
                 self.scroll_down(self.cy,self.sb)
+                
     def csi_M(self,l):
         if self.cy>=self.st and self.cy<=self.sb:
             for i in range(l[0]):
                 self.scroll_up(self.cy,self.sb)
+                
     def csi_P(self,l):
         w,cx,cy=self.width,self.cx,self.cy
         end=self.peek(cy,cx,cy,w)
         self.csi_K([0])
         self.poke(cy,cx,end[l[0]:])
+        
     def csi_X(self,l):
         self.zero(self.cy,self.cx,self.cy,self.cx+l[0])
+        
     def csi_a(self,l):
         self.csi_C(l)
+        
     def csi_c(self,l):
         #'\x1b[?0c' 0-8 cursor size
         pass
+        
     def csi_d(self,l):
         self.cy=min(self.height,l[0])-1
+        
     def csi_e(self,l):
         self.csi_B(l)
+        
     def csi_f(self,l):
         self.csi_H(l)
+        
     def csi_h(self,l):
         if l[0]==4:
             pass
 #            print "insert on"
+
     def csi_l(self,l):
         if l[0]==4:
             pass
 #            print "insert off"
+
     def csi_m(self,l):
         for i in l:
             if i==0 or i==39 or i==49 or i==27:
@@ -275,15 +322,19 @@ class Terminal:
 #            else:
 #                print "CSI sgr ignore",l,i
 #        print 'sgr: %r %x'%(l,self.sgr)
+
     def csi_r(self,l):
         if len(l)<2: l=[0,self.height]
         self.st=min(self.height-1,l[0]-1)
         self.sb=min(self.height-1,l[1]-1)
         self.sb=max(self.st,self.sb)
+        
     def csi_s(self,l):
         self.esc_save(0)
+        
     def csi_u(self,l):
         self.esc_restore(0)
+        
     def escape(self):
         e=self.buf
         if len(e)>32:
@@ -300,6 +351,7 @@ class Terminal:
                     self.buf=""
                     break
 #        if self.buf=='': print "ESC %r\n"%e
+
     def write(self,s):
         for i in s:
             if len(self.buf) or (i in self.esc_seq):
@@ -309,17 +361,21 @@ class Terminal:
                 self.buf+=i
             else:
                 self.echo(i)
+                
     def read(self):
         b=self.outbuf
         self.outbuf=""
         return b
+        
     def dump(self):
         r=''
         for i in self.scr:
             r+=chr(i&255)
         return r
+        
     def dumplatin1(self):
         return self.dump().translate(self.trl1)
+        
     def dumphtml(self,color=1):
         h=self.height
         w=self.width
@@ -349,6 +405,7 @@ class Terminal:
             self.last_html=r
 #            print self
             return r
+            
     def __repr__(self):
         d=self.dumplatin1()
         r=""
@@ -357,9 +414,11 @@ class Terminal:
         return r
 
 class SynchronizedMethod:
+
     def __init__(self,lock,orig):
         self.lock=lock
         self.orig=orig
+        
     def __call__(self,*l):
         self.lock.acquire()
         r=self.orig(*l)
@@ -367,6 +426,7 @@ class SynchronizedMethod:
         return r
 
 class Multiplex:
+
     def __init__(self,cmd=None):
         signal.signal(signal.SIGCHLD, signal.SIG_IGN)
         self.cmd=cmd
@@ -379,6 +439,7 @@ class Multiplex:
             orig=getattr(self,name)
             setattr(self,name,SynchronizedMethod(self.lock,orig))
         self.thread.start()
+        
     def create(self,w=80,h=25):
         pid,fd=pty.fork()
         if pid==0:
@@ -421,12 +482,16 @@ class Multiplex:
             fcntl.ioctl(fd, struct.unpack('i',struct.pack('I',termios.TIOCSWINSZ))[0], struct.pack("HHHH",h,w,0,0))
             self.proc[fd]={'pid':pid,'term':Terminal(w,h),'buf':'','time':time.time()}
             return fd
+            
     def die(self):
         self.alive=0
+        
     def run(self):
         return self.alive
+        
     def fds(self):
         return self.proc.keys()
+        
     def proc_kill(self,fd):
         if fd in self.proc:
             self.proc[fd]['time']=0
@@ -440,6 +505,7 @@ class Multiplex:
                 except (IOError,OSError):
                     pass
                 del self.proc[i]
+                
     def proc_read(self,fd):
         try:
             t=self.proc[fd]['term']
@@ -450,16 +516,19 @@ class Multiplex:
             self.proc[fd]['time']=time.time()
         except (KeyError,IOError,OSError):
             self.proc_kill(fd)
+            
     def proc_write(self,fd,s):
         try:
             os.write(fd,s)
         except (IOError,OSError):
             self.proc_kill(fd)
+            
     def dump(self,fd,color=1):
         try:
             return self.proc[fd]['term'].dumphtml(color)
         except KeyError:
             return False
+            
     def loop(self):
         while self.run():
             fds=self.fds()
@@ -475,7 +544,9 @@ class Multiplex:
             except (IOError,OSError):
                 pass
 
+
 class AjaxTerm:
+
     def __init__(self,cmd=None,index_file='ajaxterm.html'):
         self.files={}
         for i in ['css','html','js']:
@@ -486,6 +557,7 @@ class AjaxTerm:
         self.mime['.html']= 'text/html; charset=UTF-8'
         self.multi = Multiplex(cmd)
         self.session = {}
+        
     def __call__(self, environ, start_response):
         req = qweb.QWebRequest(environ, start_response,session=None)
         if req.PATH_INFO.endswith('/u'):
